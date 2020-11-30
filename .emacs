@@ -19,8 +19,12 @@
 ;; magit:
 ;;    c-x g: start magit
 ;;    h: help
-;; helm-tramp
-;;    c-c s: start helm-tramp
+;; Exwm:
+;;    s-&: Launch application
+;;    s-r: Switch to line-mode, exit fullscreen, refresh layout.
+;;    s-[0-9]: Switch workspace
+;; Helm-tramp:
+;;    C-c s: start helm-tramp
 
 (require 'package) ;; needed
 
@@ -36,10 +40,13 @@
 
 (add-hook 'prog-mode-hook 'display-line-numbers-mode) ;; display line numbers on code
 (add-hook 'prog-mode-hook 'show-paren-mode) ;; parenthesis highlighting on code
+(display-time-mode 1) ;; Show clock
+
 ;;(setq inhibit-startup-message t) ;; disable startup screen
 ;;(desktop-save-mode 1) ;; save & restore last session (restores all buffers so not that useful)
 (add-to-list 'default-frame-alist '(fullscreen . maximized)) ;; start maximized
 (tool-bar-mode -1) ;; Remove gui toolbar
+(add-to-list 'default-frame-alist '(font . "DejaVu Sans Mono-14")) ;; Font size to 14 (For high resolution screens, if text is too small)
 
 ;; automatically install use-package. Check if installed to prevent slowdown on startup.
 (unless (package-installed-p 'use-package)
@@ -53,6 +60,25 @@
 ;;  (setq auto-package-update-delete-old-versions t)
 ;;  (setq auto-package-update-hide-results t)
 ;;  (auto-package-update-maybe))
+
+;; GENERAL: Window Manager ++++++++++++++++++++++++++++++++++++
+;; auto get: exwm: Makes Emacs the window manager using exwm. Leave disabled if using GNOME or other window manager.
+(use-package exwm)
+(use-package exwm-config
+    :config
+ (exwm-config-default))
+(use-package exwm-systemtray
+  :config
+  (exwm-systemtray-enable))
+
+;;(if (package-installed-p 'exwm) (
+;;(require 'exwm)
+;;(require 'exwm-config)
+;;(exwm-config-default)
+;;(require 'exwm-systemtray)
+;;(exwm-systemtray-enable)
+;;  ))
+
 
 ;; GENERAL: UI ++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -70,10 +96,52 @@
   )
 
 ;; auto get: a nice theme
-(use-package zenburn-theme
+;;(use-package zenburn-theme
+;;  :ensure t
+;;  :config
+;;  (load-theme 'zenburn t) ;; set theme
+;;  )
+
+(use-package doom-themes
   :ensure t
   :config
-  (load-theme 'zenburn t) ;; set theme
+  ;; Global settings (defaults)
+  (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
+        doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; Load the theme (doom-one, doom-molokai, etc); keep in mind that each
+  ;; theme may have their own settings.
+  (load-theme 'doom-vibrant t)
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme
+  (doom-themes-neotree-config)  ; all-the-icons fonts must be installed!
+  )
+
+;;for this to work run "M-x all-the-icons-install-fonts"
+(use-package all-the-icons
+  :ensure t)
+
+(use-package neotree
+  :ensure t
+  :config
+  (global-set-key [f8] 'neotree-toggle)
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+  )
+;;tab bar manager
+(use-package centaur-tabs
+  :ensure t
+  :demand
+  :config
+  (centaur-tabs-mode t)
+  (centaur-tabs-headline-match)
+  (setq centaur-tabs-style "chamfer") 
+  (setq centaur-tabs-height 32)
+  (setq centaur-tabs-set-icons t)
+  (setq centaur-tabs-plain-icons t)
+  (setq centaur-tabs-set-bar 'top)
+  :bind
+  ("C-<left>" . centaur-tabs-backward)
+  ("C-<right>" . centaur-tabs-forward)
   )
 
 ;; GENERAL +++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -92,7 +160,9 @@
   (when (memq window-system '(mac ns x))
   (exec-path-from-shell-initialize))
   )
-;; auto get: Helm-tramp: helm integration with tramp-mode.
+
+;; auto get: Helm-tramp helm integration with tramp-mode.
+;; Config: Make sure to have a ~/.ssh/config file with your ssh connections.
 (use-package helm-tramp
   :ensure t
   :config
@@ -221,8 +291,7 @@
  ;; If there is more than one, they won't work right.
  '(asm-comment-char 35)
  '(package-selected-packages
-   (quote
-    (jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update))))
+   '(tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
