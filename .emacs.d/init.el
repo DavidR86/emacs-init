@@ -310,10 +310,17 @@
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration))
-  :config (setq lsp-completion-enable-additional-text-edit nil)
+  :config
+  (setq lsp-completion-enable-additional-text-edit nil)
+  (add-hook 'lsp-mode-hook 'lsp-ui-mode)
   )
 (use-package lsp-ui
-  :ensure t)
+  :ensure t
+  :commands lsp-ui-mode
+  :custom
+  (lsp-ui-peek-always-show t)
+  (lsp-ui-sideline-show-hover t)
+  (lsp-ui-doc-enable nil))
 (use-package helm-lsp
   :ensure t)
 (use-package lsp-java
@@ -360,13 +367,49 @@
 ;; LANGUAGE: Rust ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;; Requirements: Install Rust, cargo, rls?
 
-;; auto get: rust syntax
-(use-package rust-mode
-  :ensure t
-  :mode "\\.rs\\'"
-  :init
-  (add-hook 'rust-mode-hook #'eglot-ensure)
-  :config (setq rust-format-on-save t))
+;; rustic = basic rust-mode + additions
+(use-package rustic
+  :ensure
+  :bind (:map rustic-mode-map
+              ("M-j" . lsp-ui-imenu)
+              ("M-?" . lsp-find-references)
+              ("C-c C-c l" . flycheck-list-errors)
+              ("C-c C-c a" . lsp-execute-code-action)
+              ("C-c C-c r" . lsp-rename)
+              ("C-c C-c q" . lsp-workspace-restart)
+              ("C-c C-c Q" . lsp-workspace-shutdown)
+              ("C-c C-c s" . lsp-rust-analyzer-status)
+              ("C-c C-c e" . lsp-rust-analyzer-expand-macro)
+              ("C-c C-c d" . dap-hydra)
+              ("C-c C-c h" . lsp-ui-doc-glance))
+  :config
+  ;; uncomment for less flashiness
+  ;; (setq lsp-eldoc-hook nil)
+  ;; (setq lsp-enable-symbol-highlighting nil)
+  ;; (setq lsp-signature-auto-activate nil)
+
+  ;; comment to disable rustfmt on save
+  (setq rustic-format-on-save t)
+  (add-hook 'rustic-mode-hook 'rk/rustic-mode-hook))
+
+(defun rk/rustic-mode-hook ()
+  ;; so that run C-c C-c C-r works without having to confirm, but don't try to
+  ;; save rust buffers that are not file visiting. Once
+  ;; https://github.com/brotzeit/rustic/issues/253 has been resolved this should
+  ;; no longer be necessary.
+  (when buffer-file-name
+    (setq-local buffer-save-without-query t)))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; for rust-analyzer integration
+
+(use-package lsp-ui
+  :ensure
+  :commands lsp-ui-mode
+  :custom
+  (lsp-ui-peek-always-show t)
+  (lsp-ui-sideline-show-hover t)
+  (lsp-ui-doc-enable nil))
 
 ;; auto get: rust cargo
 (use-package cargo
@@ -379,6 +422,34 @@
 (use-package toml-mode
   :mode "\\.toml\\'"
   :ensure t)
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; setting up debugging support with dap-mode
+
+(use-package exec-path-from-shell
+  :ensure
+  :init (exec-path-from-shell-initialize))
+
+(when (executable-find "lldb-mi")
+  (use-package dap-mode
+    :ensure
+    :config
+    (dap-ui-mode)
+    (dap-ui-controls-mode 1)
+
+    (require 'dap-lldb)
+    (require 'dap-gdb-lldb)
+    ;; installs .extension/vscode
+    (dap-gdb-lldb-setup)
+    (dap-register-debug-template
+     "Rust::LLDB Run Configuration"
+     (list :type "lldb"
+           :request "launch"
+           :name "LLDB::Run"
+	   :gdbpath "rust-lldb"
+           ;; uncomment if lldb-mi is not in PATH
+           ;; :lldbmipath "path/to/lldb-mi"
+           ))))
 
 ;; +++++++++++++++++++
 ;; java
@@ -460,10 +531,11 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(asm-comment-char 35)
- '(jdee-jdk-registry '(("10.0" . "/usr/lib/jvm/java-11-openjdk-amd64")))
+ '(jdee-jdk-registry (quote (("10.0" . "/usr/lib/jvm/java-11-openjdk-amd64"))))
  '(jdee-server-dir "~/emacs/jree-server")
  '(package-selected-packages
-   '(quickrun treemacs-projectile sublimity-attractive sublimity-map sublimity-scroll sublimity counsel amx ivy dashboard doom-modeline sudo-edit which-key helm-lsp lsp-ui lsp-java eclim meghanada htmlize tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update))
+   (quote
+    (quickrun treemacs-projectile sublimity-attractive sublimity-map sublimity-scroll sublimity counsel amx ivy dashboard doom-modeline sudo-edit which-key helm-lsp lsp-ui lsp-java eclim meghanada htmlize tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update)))
  '(tooltip-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
