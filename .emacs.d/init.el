@@ -44,10 +44,12 @@
 (add-hook 'prog-mode-hook 'show-paren-mode) ;; parenthesis highlighting on code
 (display-time-mode 1) ;; Show clock
 
+(electric-pair-mode 1) ;; Close brackets and parentheses.
+
 ;;(setq inhibit-startup-message t) ;; disable startup screen
 ;;(desktop-save-mode 1) ;; save & restore last session (restores all buffers so not that useful)
 (add-to-list 'default-frame-alist '(fullscreen . maximized)) ;; start maximized
-;; (tool-bar-mode -1) ;; Remove gui toolbar
+(tool-bar-mode -1) ;; Remove gui toolbar
 (add-to-list 'default-frame-alist '(font . "DejaVu Sans Mono-14")) ;; Font size to 14 (For high resolution screens, if text is too small)
 
 ;; automatically install use-package. Check if installed to prevent slowdown on startup.
@@ -174,7 +176,7 @@
         doom-themes-enable-italic t) ; if nil, italics is universally disabled
   ;; Load the theme (doom-one, doom-molokai, etc); keep in mind that each
   ;; theme may have their own settings.
-  (load-theme 'doom-vibrant t)
+  (load-theme 'doom-nord t)
   ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
   ;; Enable custom neotree theme
@@ -306,21 +308,23 @@
    (global-flycheck-mode)
   ;;:hook (java-mode . flycheck-mode)
   )
-
 (use-package lsp-mode
-  :ensure t
-  :hook ((lsp-mode . lsp-enable-which-key-integration))
+  :ensure
+  :commands lsp
+  :custom
+  (lsp-eldoc-render-all t)
+  (lsp-idle-delay 0.6)
+  (lsp-rust-analyzer-server-display-inlay-hints t)
   :config
-  (setq lsp-completion-enable-additional-text-edit nil)
-  (add-hook 'lsp-mode-hook 'lsp-ui-mode)
-  )
+  (add-hook 'lsp-mode-hook 'lsp-ui-mode))
+
 (use-package lsp-ui
-  :ensure t
+  :ensure
   :commands lsp-ui-mode
   :custom
   (lsp-ui-peek-always-show t)
   (lsp-ui-sideline-show-hover t)
-  (lsp-ui-doc-enable nil))
+  (lsp-ui-doc-enable t))
 (use-package helm-lsp
   :ensure t)
 (use-package lsp-java
@@ -531,12 +535,12 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(asm-comment-char 35)
- '(jdee-jdk-registry (quote (("10.0" . "/usr/lib/jvm/java-11-openjdk-amd64"))))
+ '(jdee-jdk-registry '(("10.0" . "/usr/lib/jvm/java-11-openjdk-amd64")))
  '(jdee-server-dir "~/emacs/jree-server")
  '(package-selected-packages
-   (quote
-    (quickrun treemacs-projectile sublimity-attractive sublimity-map sublimity-scroll sublimity counsel amx ivy dashboard doom-modeline sudo-edit which-key helm-lsp lsp-ui lsp-java eclim meghanada htmlize tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update)))
- '(tooltip-mode nil))
+   '(quickrun treemacs-projectile sublimity-attractive sublimity-map sublimity-scroll sublimity counsel amx ivy dashboard doom-modeline sudo-edit which-key helm-lsp lsp-ui lsp-java eclim meghanada htmlize tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update))
+ '(tooltip-mode nil)
+ '(warning-suppress-types '((use-package) (use-package) (use-package))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
