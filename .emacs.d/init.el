@@ -1,6 +1,7 @@
 ;; My custom emacs settings file
 
 ;; Common shortcuts:
+;;    [F11]: toggle fullscreen (On Linux)
 ;;    c-x c-f: find file
 ;;    m-x: run command
 ;;    c-x [->,<-]: switch buffers
@@ -15,6 +16,8 @@
 ;;    c-x 2: split horizontally
 ;;    c-x 1: hide other windows
 ;;    c-/: undo
+;; Treemacs
+;;    [F8]: Toggle treemacs
 ;; magit:
 ;;    c-x g: start magit
 ;;    h: help
@@ -24,7 +27,12 @@
 ;;    s-[0-9]: Switch workspace
 ;; Helm-tramp:
 ;;    C-c s: start helm-tramp
-
+;; Rust:
+;;    s-/: open lsp-ui doc widget (custom)
+;;    M-.: jump to definition
+;;    M-,: jump back
+;;    M-?: list usage
+;;    M-j: outline of functions
 (require 'package) ;; needed
 
 ;; package repositories
@@ -46,11 +54,23 @@
 
 (electric-pair-mode 1) ;; Close brackets and parentheses.
 
+;; toggle fullscreen on f11 for Linux with X11
+(defun toggle-fullscreen ()
+  "Toggle full screen on X11"
+  (interactive)
+  (when (eq window-system 'x)
+    (set-frame-parameter
+     nil 'fullscreen
+     (when (not (frame-parameter nil 'fullscreen)) 'fullboth))))
+
+(global-set-key [f11] 'toggle-fullscreen)
+
+
 ;;(setq inhibit-startup-message t) ;; disable startup screen
 ;;(desktop-save-mode 1) ;; save & restore last session (restores all buffers so not that useful)
 (add-to-list 'default-frame-alist '(fullscreen . maximized)) ;; start maximized
 (tool-bar-mode -1) ;; Remove gui toolbar
-(add-to-list 'default-frame-alist '(font . "DejaVu Sans Mono-14")) ;; Font size to 14 (For high resolution screens, if text is too small)
+(add-to-list 'default-frame-alist '(font . "DejaVu Sans Mono-10")) ;; Font size to 14 (For high resolution screens, if text is too small)
 
 ;; automatically install use-package. Check if installed to prevent slowdown on startup.
 (unless (package-installed-p 'use-package)
@@ -61,7 +81,7 @@
   :ensure t
   :if (not (daemonp))
   :custom
-  (auto-package-update-interval 7) ;; in days
+  (auto-package-update-interval 14) ;; in days
   (auto-package-update-prompt-before-update t)
   (auto-package-update-delete-old-versions t)
   (auto-package-update-hide-results t)
@@ -104,6 +124,13 @@
 ;;(setq rtags-display-result-backend 'helm)
 ;;  )
 
+;; Cmake mode
+(use-package cmake-mode
+  :ensure t
+  :config
+  (setq load-path (cons (expand-file-name "/dir/with/cmake-mode") load-path))
+  )
+
 ;; Autocomplete code snippets
 (use-package yasnippet
   :ensure t
@@ -112,21 +139,13 @@
   (use-package yasnippet-snippets :ensure t :after yasnippet)
   :hook ((prog-mode LaTeX-mode org-mode) . yas-minor-mode)
   :bind
-  (:map yas-minor-mode-map ("C-c C-n" . yas-expand-from-trigger-key))
-  (:map yas-keymap
-        (("TAB" . smarter-yas-expand-next-field)
-         ([(tab)] . smarter-yas-expand-next-field)))
+  (:map yas-minor-mode-map ("C-c C-n" . yas-expand-from-trigger-key)))
+
+;; less mode line clutter
+(use-package minions
+  :ensure t
   :config
-  (yas-reload-all)
-  (defun smarter-yas-expand-next-field ()
-    "Try to `yas-expand' then `yas-next-field' at current cursor position."
-    (interactive)
-    (let ((old-point (point))
-          (old-tick (buffer-chars-modified-tick)))
-      (yas-expand)
-      (when (and (eq old-point (point))
-                 (eq old-tick (buffer-chars-modified-tick)))
-        (ignore-errors (yas-next-field))))))
+  (minions-mode 1))
 
 ;; Ivy: searches
 (use-package ivy
@@ -228,7 +247,7 @@
   :ensure t
   :config
   (setq dashboard-projects-backend 'projectile)
-  (setq dashboard-startup-banner "~/.emacs.d/logo.png")
+  (setq dashboard-startup-banner "~/.emacs.d/vw_logo_small.png")
   (setq dashboard-center-content t)
   (setq dashboard-items '((recents  . 5)
                         (bookmarks . 5)
@@ -251,14 +270,32 @@
   :ensure t
   :config
   (projectile-mode +1)
-  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
   (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
   )
+
+(use-package treemacs
+  :ensure t
+  :defer t
+  :init
+  (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+  :config
+  ;; (treemacs) ;; uncomment to start treemacs automatically
+  (treemacs-project-follow-mode 1)
+  (global-set-key [f8] 'treemacs)
+  )
+
+
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :ensure t)
 
 (use-package treemacs-projectile
   :ensure t
   :defer t
   :after (treemacs projectile))
+
+(use-package lsp-treemacs)
 
 
 ;; auto get: fix path issues on MacOS and Linux
@@ -296,7 +333,43 @@
   :ensure t
   :hook (prog-mode . company-mode)
   :config (setq company-tooltip-align-annotations t)
-  (setq company-minimum-prefix-length 1))
+  :bind
+  (:map company-active-map
+              ("C-n". company-select-next)
+              ("C-p". company-select-previous)
+              ("M-<". company-select-first)
+              ("M->". company-select-last))
+  (:map company-mode-map
+        ("<tab>". tab-indent-or-complete)
+        ("TAB". tab-indent-or-complete)))
+
+  (defun check-expansion ()
+    (save-excursion
+      (if (looking-at "\\_>") t
+        (backward-char 1)
+        (if (looking-at "\\.") t
+          (backward-char 1)
+          (if (looking-at "->") t nil)))))
+
+  (defun do-yas-expand ()
+    (let ((yas/fallback-behavior 'return-nil))
+      (yas/expand)))
+
+  (defun tab-indent-or-complete ()
+    (interactive)
+    (if (minibufferp)
+        (minibuffer-complete)
+      (if (or (not yas/minor-mode)
+              (null (do-yas-expand)))
+          (if (check-expansion)
+              (company-complete-common)
+            (indent-for-tab-command)))))
+
+(use-package yaml-mode
+  :ensure t
+  :config
+  (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
+)
 
 ;; LANGUAGE: Java +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;; USAGE: Quickly build project with F5? F8?
@@ -312,7 +385,9 @@
   :ensure
   :commands lsp
   :custom
-  (lsp-eldoc-render-all t)
+   ;; what to use when checking on-save. "check" is default, I prefer clippy
+  (lsp-rust-analyzer-cargo-watch-command "clippy")
+  (lsp-eldoc-render-all nil)
   (lsp-idle-delay 0.6)
   (lsp-rust-analyzer-server-display-inlay-hints t)
   :config
@@ -323,8 +398,19 @@
   :commands lsp-ui-mode
   :custom
   (lsp-ui-peek-always-show t)
-  (lsp-ui-sideline-show-hover t)
-  (lsp-ui-doc-enable t))
+  (lsp-ui-sideline-enable nil)
+  ;;(lsp-ui-sideline-show-hover t)
+  (setq lsp-ui-sideline-show-diagnostics nil)
+  (setq lsp-signature-render-documentation nil)
+  (lsp-ui-doc-enable t)
+  (lsp-ui-doc-show-with-cursor nil)
+  (define-key lsp-ui-mode-map [remap xref-find-definitions] #'lsp-ui-peek-find-definitions)
+  (define-key lsp-ui-mode-map [remap xref-find-references] #'lsp-ui-peek-find-references)
+  (lsp-ui-doc-delay 0.6)
+  :bind
+  ("s-/" . #'lsp-ui-doc-glance)
+  )
+
 (use-package helm-lsp
   :ensure t)
 (use-package lsp-java
@@ -390,37 +476,13 @@
   ;; uncomment for less flashiness
   ;; (setq lsp-eldoc-hook nil)
   ;; (setq lsp-enable-symbol-highlighting nil)
-  ;; (setq lsp-signature-auto-activate nil)
+  ;;(setq lsp-signature-auto-activate nil)
 
   ;; comment to disable rustfmt on save
-  (setq rustic-format-on-save t)
-  (add-hook 'rustic-mode-hook 'rk/rustic-mode-hook))
-
-(defun rk/rustic-mode-hook ()
-  ;; so that run C-c C-c C-r works without having to confirm, but don't try to
-  ;; save rust buffers that are not file visiting. Once
-  ;; https://github.com/brotzeit/rustic/issues/253 has been resolved this should
-  ;; no longer be necessary.
-  (when buffer-file-name
-    (setq-local buffer-save-without-query t)))
+  (setq rustic-format-on-save t))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; for rust-analyzer integration
-
-(use-package lsp-ui
-  :ensure
-  :commands lsp-ui-mode
-  :custom
-  (lsp-ui-peek-always-show t)
-  (lsp-ui-sideline-show-hover t)
-  (lsp-ui-doc-enable nil))
-
-;; auto get: rust cargo
-(use-package cargo
-  :ensure t
-  :init
-  (add-hook 'rust-mode-hook 'cargo-minor-mode)
-  (add-hook 'toml-mode-hook 'cargo-minor-mode))
 
 ;; auto get: rust toml syntax
 (use-package toml-mode
@@ -528,6 +590,41 @@
 (add-to-list 'auto-mode-alist '("\\.s\\'" . my-mode))
 (add-hook 'my-mode-hook #'asm-mode)
 
+;; EMAIL ++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+;; usage:
+;; $ offlineimap
+;; $ mu index
+;; M-x mu4e
+;; from mu's official manual
+;;----------------------------------------------------------
+(use-package mu4e
+  :ensure t
+  :load-path "/usr/share/emacs/site-lisp/mu4e"
+  :requires smtpmail  
+  :config
+  (setq mail-user-agent 'mu4e-user-agent)
+  (setq mu4e-sent-messages-behavior 'sent)
+  (setq mu4e-maildir "/home/fal/Mails")
+  (setq mu4e-update-interval 300)
+  (setq message-send-mail-function 'smtpmail-send-it)
+  (setq mu4e-get-mail-command "offlineimap")
+  (setq mu4e-headers-date-format "%d-%m-%Y %H:%M")
+  (setq mu4e-headers-fields '((:human-date . 20)
+			      (:flags . 6)
+			      (:from . 22)
+			      (:maildir . 8)
+			      (:subject)))
+  (setq user-full-name "Francisco Ayala Le Brun")
+  (setq user-mail-address "francisco@videowindow.eu")
+  (setq smtpmail-default-smtp-server "smtp.transip.email")
+  (setq smtpmail-smtp-user "francisco@videowindow.eu")
+  (setq smtpmail-smtp-server "smtp.transip.email")
+  (setq smtpmail-stream-type 'ssl)
+  (setq smtpmail-smtp-service 465)
+  (add-hook 'mu4e-compose-mode-hook #'(lambda () (auto-save-mode -1)))
+  )
+
 ;; +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -538,7 +635,7 @@
  '(jdee-jdk-registry '(("10.0" . "/usr/lib/jvm/java-11-openjdk-amd64")))
  '(jdee-server-dir "~/emacs/jree-server")
  '(package-selected-packages
-   '(quickrun treemacs-projectile sublimity-attractive sublimity-map sublimity-scroll sublimity counsel amx ivy dashboard doom-modeline sudo-edit which-key helm-lsp lsp-ui lsp-java eclim meghanada htmlize tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update))
+   '(mu4e cmake-mode quickrun treemacs-projectile sublimity-attractive sublimity-map sublimity-scroll sublimity counsel amx ivy dashboard doom-modeline sudo-edit which-key helm-lsp lsp-ui lsp-java eclim meghanada htmlize tabbar-ruler helm-tramp exwm jsonrpc prettier-js zenburn-theme web-mode use-package toml-mode magit js2-mode helm flymake-jslint flymake-jshint flycheck exec-path-from-shell eglot company cargo auto-package-update))
  '(tooltip-mode nil)
  '(warning-suppress-types '((use-package) (use-package) (use-package))))
 (custom-set-faces
